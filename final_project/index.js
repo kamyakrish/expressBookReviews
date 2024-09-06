@@ -11,30 +11,37 @@ app.use(express.json());
 app.use("/customer",session({secret:"fingerprint_customer",resave: true, saveUninitialized: true}))
 
 app.use("/customer/auth/*", function auth(req, res, next) {
-    // Retrieve the token from the session
-    const token = req.session.token;
+    let token;
 
-    // If no token is found, return an error
+    // Check if the token is in the Authorization header
+    if (req.headers['authorization']) {
+        token = req.headers['authorization'].split(' ')[1]; // Extract the token from "Bearer <token>"
+    }
+
+    // Fallback to token stored in the session (if necessary)
+    if (!token && req.session.authorization) {
+        token = req.session.authorization['accessToken'];
+    }
+
     if (!token) {
-        return res.status(403).json({ message: "Authentication required" });
+        return res.status(403).json({ message: "User not logged in" });
     }
 
     // Verify the token
-    jwt.verify(token, "fingerprint_customer", (err, user) => {
+    jwt.verify(token, "access", (err, user) => {
         if (err) {
             return res.status(403).json({ message: "Invalid or expired token" });
         }
 
         // If token is valid, proceed to the next middleware or route
-        req.user = user; // Optionally, store the user info from the token
+        req.user = user;
         next();
     });
 });
 
  
-const PORT =5000;
+const PORT =5001;
 
 app.use("/customer", customer_routes);
 app.use("/", genl_routes);
-
 app.listen(PORT,()=>console.log("Server is running"));
